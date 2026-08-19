@@ -7,23 +7,16 @@ from pathlib import Path
 import json
 import random
 
-
-# ==========================================
-# CONFIGURATION
-# ==========================================
-
 TOKEN_FILE = "token.json"
 HISTORY_FILE = "history.json"
 IMAGE_FILE = "frame.png"
 VIDEO_FILE = "subscriber_video.mp4"
 
+WIDTH = 1920
+HEIGHT = 1080
 
-# ==========================================
-# POLICES COMPATIBLES WINDOWS + GITHUB
-# ==========================================
 
 def get_font(size, bold=False):
-
     paths = []
 
     if bold:
@@ -44,15 +37,11 @@ def get_font(size, bold=False):
     return ImageFont.load_default()
 
 
-# ==========================================
-# CONNEXION YOUTUBE
-# ==========================================
+# =========================
+# YOUTUBE
+# =========================
 
-print("Connexion à YouTube...")
-
-credentials = Credentials.from_authorized_user_file(
-    TOKEN_FILE
-)
+credentials = Credentials.from_authorized_user_file(TOKEN_FILE)
 
 youtube = build(
     "youtube",
@@ -60,109 +49,56 @@ youtube = build(
     credentials=credentials
 )
 
-
-# ==========================================
-# RÉCUPÉRATION DE LA CHAÎNE
-# ==========================================
-
 data = youtube.channels().list(
     part="snippet,statistics",
     mine=True
 ).execute()["items"][0]
 
-name = data["snippet"]["title"]
+channel_name = data["snippet"]["title"]
 
 subscribers = int(
-    data["statistics"].get(
-        "subscriberCount",
-        0
-    )
+    data["statistics"].get("subscriberCount", 0)
 )
 
-print()
-print("Chaîne :", name)
+print("Chaîne :", channel_name)
 print("Abonnés :", subscribers)
 
 
-# ==========================================
+# =========================
 # HISTORIQUE
-# ==========================================
+# =========================
 
-history_file = Path(HISTORY_FILE)
+history_path = Path(HISTORY_FILE)
 
-if history_file.exists():
-
+if history_path.exists():
     try:
         history = json.loads(
-            history_file.read_text(
-                encoding="utf-8"
-            )
+            history_path.read_text(encoding="utf-8")
         )
-
     except Exception:
-        history = {"last": None}
-
+        history = {}
 else:
+    history = {}
 
-    history = {"last": None}
+previous = history.get("last_subscribers")
 
-
-last = history.get("last")
-
-
-if last is None:
-
+if previous is None:
     gained = 0
     lost = 0
-
 else:
+    difference = subscribers - int(previous)
 
-    difference = subscribers - int(last)
-
-    gained = max(
-        difference,
-        0
-    )
-
-    lost = max(
-        -difference,
-        0
-    )
+    gained = max(difference, 0)
+    lost = max(-difference, 0)
 
 
-# ==========================================
-# OBJECTIF
-# ==========================================
-
-goal = subscribers + max(
-    gained,
-    1
-)
+# Objectif
+goal = subscribers + max(gained, 1)
 
 
-# ==========================================
-# ÉVÉNEMENT ALÉATOIRE
-# ==========================================
-
-event = random.choice([
-    "normal",
-    "stars",
-    "lines",
-    "circles",
-    "dots"
-])
-
-
-# ==========================================
-# CRÉATION DE L'IMAGE
-# ==========================================
-
-print("Création de l'image...")
-
-
-WIDTH = 1920
-HEIGHT = 1080
-
+# =========================
+# IMAGE
+# =========================
 
 image = Image.new(
     "RGB",
@@ -173,327 +109,237 @@ image = Image.new(
 draw = ImageDraw.Draw(image)
 
 
-# Polices
-
-font_title = get_font(
-    55,
-    True
-)
-
-font_big = get_font(
-    150,
-    True
-)
-
-font_medium = get_font(
-    55,
-    True
-)
-
-font_small = get_font(
-    42,
-    False
-)
-
-
-# ==========================================
+# =========================
 # DÉCOR ALÉATOIRE
-# ==========================================
+# =========================
+
+event = random.choice([
+    "stars",
+    "circles",
+    "dots",
+    "lines"
+])
 
 if event == "stars":
 
-    for i in range(80):
+    for _ in range(100):
 
-        x = random.randint(
-            30,
-            WIDTH - 30
-        )
-
-        y = random.randint(
-            30,
-            HEIGHT - 30
-        )
-
-        r = random.randint(
-            2,
-            6
-        )
+        x = random.randint(20, WIDTH - 20)
+        y = random.randint(20, HEIGHT - 20)
+        r = random.randint(1, 4)
 
         draw.ellipse(
-            (
-                x - r,
-                y - r,
-                x + r,
-                y + r
-            ),
-            fill=(80, 90, 130)
+            (x-r, y-r, x+r, y+r),
+            fill=(70, 75, 100)
         )
-
-
-elif event == "lines":
-
-    for i in range(12):
-
-        x = random.randint(
-            0,
-            WIDTH
-        )
-
-        draw.line(
-            (
-                x,
-                0,
-                WIDTH - x,
-                HEIGHT
-            ),
-            fill=(25, 30, 50),
-            width=4
-        )
-
 
 elif event == "circles":
 
-    for i in range(12):
+    for _ in range(15):
 
-        x = random.randint(
-            0,
-            WIDTH
-        )
-
-        y = random.randint(
-            0,
-            HEIGHT
-        )
-
-        r = random.randint(
-            20,
-            100
-        )
+        x = random.randint(0, WIDTH)
+        y = random.randint(0, HEIGHT)
+        r = random.randint(30, 120)
 
         draw.ellipse(
-            (
-                x - r,
-                y - r,
-                x + r,
-                y + r
-            ),
-            outline=(30, 35, 60),
-            width=4
+            (x-r, y-r, x+r, y+r),
+            outline=(30, 35, 55),
+            width=3
         )
-
 
 elif event == "dots":
 
-    for i in range(100):
+    for _ in range(150):
 
-        x = random.randint(
-            0,
-            WIDTH
-        )
-
-        y = random.randint(
-            0,
-            HEIGHT
-        )
+        x = random.randint(0, WIDTH)
+        y = random.randint(0, HEIGHT)
 
         draw.ellipse(
-            (
-                x,
-                y,
-                x + 5,
-                y + 5
-            ),
-            fill=(40, 45, 70)
+            (x, y, x+4, y+4),
+            fill=(45, 50, 70)
+        )
+
+elif event == "lines":
+
+    for _ in range(15):
+
+        x = random.randint(0, WIDTH)
+
+        draw.line(
+            (x, 0, WIDTH-x, HEIGHT),
+            fill=(25, 30, 50),
+            width=3
         )
 
 
-# ==========================================
+# =========================
+# POLICES
+# =========================
+
+font_title = get_font(48, True)
+font_counter = get_font(125, True)
+font_info = get_font(43, True)
+font_small = get_font(32, False)
+
+
+# =========================
 # TITRE
-# ==========================================
+# =========================
 
 draw.text(
-    (
-        WIDTH // 2,
-        250
-    ),
-    name,
+    (WIDTH // 2, 95),
+    channel_name,
     font=font_title,
     fill=(245, 245, 250),
     anchor="mm"
 )
 
-
-# ==========================================
-# SUBSCRIBERS
-# ==========================================
-
 draw.text(
-    (
-        WIDTH // 2,
-        480
-    ),
-    "SUBSCRIBERS",
-    font=font_medium,
-    fill=(160, 165, 180),
+    (WIDTH // 2, 175),
+    "SUBSCRIBER COUNTER",
+    font=font_small,
+    fill=(145, 150, 165),
     anchor="mm"
 )
 
 
+# =========================
+# COMPTEUR
+# =========================
+
 draw.text(
-    (
-        WIDTH // 2,
-        720
-    ),
+    (WIDTH // 2, 385),
     f"{subscribers:,}",
-    font=font_big,
+    font=font_counter,
     fill=(245, 245, 250),
     anchor="mm"
 )
 
-
-# ==========================================
-# GAGNÉS
-# ==========================================
-
 draw.text(
-    (
-        WIDTH // 2,
-        980
-    ),
-    f"+{gained:,} THIS HOUR",
-    font=font_medium,
-    fill=(80, 220, 120),
-    anchor="mm"
-)
-
-
-# ==========================================
-# PERDUS
-# ==========================================
-
-draw.text(
-    (
-        WIDTH // 2,
-        1080
-    ),
-    f"-{lost:,} LOST",
-    font=font_medium,
-    fill=(255, 80, 80),
-    anchor="mm"
-)
-
-
-# ==========================================
-# OBJECTIF
-# ==========================================
-
-draw.text(
-    (
-        WIDTH // 2,
-        1280
-    ),
-    "NEXT HOUR GOAL",
+    (WIDTH // 2, 485),
+    "SUBSCRIBERS",
     font=font_small,
-    fill=(160, 165, 180),
+    fill=(145, 150, 165),
     anchor="mm"
 )
 
 
-draw.text(
-    (
-        WIDTH // 2,
-        1370
-    ),
-    f"{goal:,}",
-    font=font_medium,
-    fill=(245, 245, 250),
-    anchor="mm"
-)
-
-
-# ==========================================
-# OBJECTIF 100K
-# ==========================================
-
-draw.text(
-    (
-        WIDTH // 2,
-        1650
-    ),
-    "ROAD TO 100,000",
-    font=font_small,
-    fill=(160, 165, 180),
-    anchor="mm"
-)
-
-
-# Barre de progression
-
-bar_x1 = 150
-bar_x2 = WIDTH - 150
-bar_y = 1720
+# =========================
+# GAGNÉS / PERDUS
+# =========================
 
 draw.rounded_rectangle(
-    (
-        bar_x1,
-        bar_y,
-        bar_x2,
-        bar_y + 25
-    ),
+    (300, 570, 850, 700),
+    radius=25,
+    fill=(20, 45, 30)
+)
+
+draw.rounded_rectangle(
+    (1070, 570, 1620, 700),
+    radius=25,
+    fill=(55, 25, 30)
+)
+
+draw.text(
+    (575, 635),
+    f"+{gained:,} THIS HOUR",
+    font=font_info,
+    fill=(90, 230, 130),
+    anchor="mm"
+)
+
+draw.text(
+    (1345, 635),
+    f"-{lost:,} LOST",
+    font=font_info,
+    fill=(255, 100, 100),
+    anchor="mm"
+)
+
+
+# =========================
+# OBJECTIF
+# =========================
+
+draw.text(
+    (WIDTH // 2, 780),
+    "NEXT HOUR GOAL",
+    font=font_small,
+    fill=(145, 150, 165),
+    anchor="mm"
+)
+
+draw.text(
+    (WIDTH // 2, 845),
+    f"{goal:,}",
+    font=font_info,
+    fill=(245, 245, 250),
+    anchor="mm"
+)
+
+
+# =========================
+# PROGRESSION 100K
+# =========================
+
+draw.text(
+    (WIDTH // 2, 920),
+    "ROAD TO 100,000",
+    font=font_small,
+    fill=(145, 150, 165),
+    anchor="mm"
+)
+
+bar_left = 500
+bar_right = 1420
+bar_top = 960
+bar_bottom = 985
+
+draw.rounded_rectangle(
+    (bar_left, bar_top, bar_right, bar_bottom),
     radius=12,
     fill=(35, 40, 55)
 )
-
 
 progress = min(
     subscribers / 100000,
     1
 )
 
-
 progress_width = int(
-    (bar_x2 - bar_x1) * progress
+    (bar_right - bar_left) * progress
 )
-
 
 if progress_width > 0:
 
     draw.rounded_rectangle(
         (
-            bar_x1,
-            bar_y,
-            bar_x1 + progress_width,
-            bar_y + 25
+            bar_left,
+            bar_top,
+            bar_left + progress_width,
+            bar_bottom
         ),
         radius=12,
         fill=(255, 70, 70)
     )
 
 
-# ==========================================
-# SAUVEGARDE IMAGE
-# ==========================================
+# =========================
+# SAUVEGARDE
+# =========================
 
-image.save(
-    IMAGE_FILE
-)
+image.save(IMAGE_FILE)
 
 print("Image créée.")
 
 
-# ==========================================
-# CRÉATION VIDÉO
-# ==========================================
+# =========================
+# VIDÉO
+# =========================
 
 print("Création de la vidéo...")
 
-
-clip = ImageClip(
-    IMAGE_FILE
-).with_duration(
-    30
-)
-
+clip = ImageClip(IMAGE_FILE).with_duration(30)
 
 clip.write_videofile(
     VIDEO_FILE,
@@ -503,83 +349,53 @@ clip.write_videofile(
     logger=None
 )
 
-
 clip.close()
-
 
 print("Vidéo créée.")
 
 
-# ==========================================
-# UPLOAD YOUTUBE
-# ==========================================
+# =========================
+# UPLOAD
+# =========================
 
 print("Upload sur YouTube...")
 
+title = f"{subscribers:,} Subscribers - Hourly Update"
 
-video_title = (
-    f"{subscribers:,} Subscribers "
-    f"- Hourly Update"
-)
+description = f"""Current subscribers: {subscribers:,}
 
-
-description = f"""
-Current subscribers: {subscribers:,}
-
-Gained this hour: +{gained:,}
-
-Lost this hour: -{lost:,}
+Subscribers gained since last update: +{gained:,}
+Subscribers lost since last update: -{lost:,}
 
 Next hour goal: {goal:,}
 
 Road to 100,000 subscribers.
 
-This video is automatically generated every hour.
+Automatically updated every hour.
 """
 
-
 request = youtube.videos().insert(
-
     part="snippet,status",
-
     body={
-
         "snippet": {
-
-            "title": video_title[:100],
-
+            "title": title[:100],
             "description": description,
-
             "categoryId": "22"
-
         },
-
         "status": {
-
             "privacyStatus": "public",
-
             "selfDeclaredMadeForKids": False
-
         }
-
     },
-
     media_body=MediaFileUpload(
-
         VIDEO_FILE,
-
         mimetype="video/mp4",
-
         resumable=True
-
     )
 )
 
-
 response = request.execute()
 
-
-print()
 print("==============================")
 print("       VIDÉO PUBLIÉE !")
 print("==============================")
@@ -590,13 +406,13 @@ print(
 print("==============================")
 
 
-# ==========================================
-# SAUVEGARDE DE L'HISTORIQUE
-# ==========================================
+# =========================
+# HISTORIQUE
+# =========================
 
-history["last"] = subscribers
+history["last_subscribers"] = subscribers
 
-history_file.write_text(
+history_path.write_text(
     json.dumps(
         history,
         indent=2
@@ -604,6 +420,4 @@ history_file.write_text(
     encoding="utf-8"
 )
 
-
-print()
 print("Terminé !")
