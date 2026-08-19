@@ -2,15 +2,11 @@ name: Hourly YouTube Counter
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: youtube-counter
-  cancel-in-progress: false
 
 jobs:
   counter:
@@ -36,12 +32,4 @@ jobs:
           printf '%s' "$TOKEN" > token.json
 
       - name: Run counter
-        run: python counter.py
-
-      - name: Save history
-        run: |
-          git config user.name "YouTube Counter Bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add history.json
-          git diff --cached --quiet || git commit -m "Update subscriber history"
-          git push
+        run: python counter.py 
