@@ -4,6 +4,7 @@ from googleapiclient.http import MediaFileUpload
 from PIL import Image, ImageDraw, ImageFont
 from moviepy import ImageClip
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
 import json
 import random
 
@@ -17,18 +18,17 @@ HEIGHT = 1080
 
 
 def get_font(size, bold=False):
-    paths = []
-
-    if bold:
-        paths = [
+    paths = (
+        [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "C:/Windows/Fonts/arialbd.ttf",
         ]
-    else:
-        paths = [
+        if bold
+        else [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "C:/Windows/Fonts/arial.ttf",
         ]
+    )
 
     for path in paths:
         if Path(path).exists():
@@ -38,8 +38,40 @@ def get_font(size, bold=False):
 
 
 # =========================
+# HISTORIQUE / HORAIRE
+# =========================
+
+history_path = Path(HISTORY_FILE)
+
+if history_path.exists():
+    try:
+        history = json.loads(history_path.read_text(encoding="utf-8"))
+    except Exception:
+        history = {}
+else:
+    history = {}
+
+# Ne publier qu'une fois par heure
+last_post = history.get("last_post")
+
+if last_post:
+    try:
+        last_time = datetime.fromisoformat(last_post)
+        now = datetime.now(timezone.utc)
+
+        if now - last_time < timedelta(minutes=55):
+            print("Pas encore une heure depuis la dernière vidéo.")
+            print("Prochaine vérification automatique dans quelques minutes.")
+            raise SystemExit
+    except ValueError:
+        pass
+
+
+# =========================
 # YOUTUBE
 # =========================
+
+print("Connexion à YouTube...")
 
 credentials = Credentials.from_authorized_user_file(TOKEN_FILE)
 
@@ -60,25 +92,14 @@ subscribers = int(
     data["statistics"].get("subscriberCount", 0)
 )
 
+print()
 print("Chaîne :", channel_name)
 print("Abonnés :", subscribers)
 
 
 # =========================
-# HISTORIQUE
+# COMPARAISON
 # =========================
-
-history_path = Path(HISTORY_FILE)
-
-if history_path.exists():
-    try:
-        history = json.loads(
-            history_path.read_text(encoding="utf-8")
-        )
-    except Exception:
-        history = {}
-else:
-    history = {}
 
 previous = history.get("last_subscribers")
 
@@ -87,18 +108,36 @@ if previous is None:
     lost = 0
 else:
     difference = subscribers - int(previous)
-
     gained = max(difference, 0)
     lost = max(-difference, 0)
 
 
-# Objectif
-goal = subscribers + max(gained, 1)
+# =========================
+# NEXT HOUR GOAL
+# =========================
+
+next_hour_goal = subscribers + max(gained, 1)
+
+
+# =========================
+# ROAD TO DYNAMIC
+# =========================
+
+road_goal = ((subscribers // 100000) + 1) * 100000
+road_previous = road_goal - 100000
+
+progress = (
+    (subscribers - road_previous) / 100000
+)
+
+progress = max(0, min(progress, 1))
 
 
 # =========================
 # IMAGE
 # =========================
+
+print("Création de l'image...")
 
 image = Image.new(
     "RGB",
@@ -121,9 +160,7 @@ event = random.choice([
 ])
 
 if event == "stars":
-
     for _ in range(100):
-
         x = random.randint(20, WIDTH - 20)
         y = random.randint(20, HEIGHT - 20)
         r = random.randint(1, 4)
@@ -134,9 +171,7 @@ if event == "stars":
         )
 
 elif event == "circles":
-
     for _ in range(15):
-
         x = random.randint(0, WIDTH)
         y = random.randint(0, HEIGHT)
         r = random.randint(30, 120)
@@ -148,9 +183,7 @@ elif event == "circles":
         )
 
 elif event == "dots":
-
     for _ in range(150):
-
         x = random.randint(0, WIDTH)
         y = random.randint(0, HEIGHT)
 
@@ -159,10 +192,8 @@ elif event == "dots":
             fill=(45, 50, 70)
         )
 
-elif event == "lines":
-
+else:
     for _ in range(15):
-
         x = random.randint(0, WIDTH)
 
         draw.line(
@@ -258,7 +289,7 @@ draw.text(
 
 
 # =========================
-# OBJECTIF
+# NEXT HOUR GOAL
 # =========================
 
 draw.text(
@@ -271,7 +302,7 @@ draw.text(
 
 draw.text(
     (WIDTH // 2, 845),
-    f"{goal:,}",
+    f"{next_hour_goal:,}",
     font=font_info,
     fill=(245, 245, 250),
     anchor="mm"
@@ -279,17 +310,19 @@ draw.text(
 
 
 # =========================
-# PROGRESSION 100K
+# ROAD TO DYNAMIC
 # =========================
 
 draw.text(
     (WIDTH // 2, 920),
-    "ROAD TO 100,000",
+    f"ROAD TO {road_goal:,}",
     font=font_small,
     fill=(145, 150, 165),
     anchor="mm"
 )
 
+
+# Barre
 bar_left = 500
 bar_right = 1420
 bar_top = 960
@@ -301,17 +334,11 @@ draw.rounded_rectangle(
     fill=(35, 40, 55)
 )
 
-progress = min(
-    subscribers / 100000,
-    1
-)
-
 progress_width = int(
     (bar_right - bar_left) * progress
 )
 
 if progress_width > 0:
-
     draw.rounded_rectangle(
         (
             bar_left,
@@ -323,10 +350,6 @@ if progress_width > 0:
         fill=(255, 70, 70)
     )
 
-
-# =========================
-# SAUVEGARDE
-# =========================
 
 image.save(IMAGE_FILE)
 
@@ -367,9 +390,9 @@ description = f"""Current subscribers: {subscribers:,}
 Subscribers gained since last update: +{gained:,}
 Subscribers lost since last update: -{lost:,}
 
-Next hour goal: {goal:,}
+Next hour goal: {next_hour_goal:,}
 
-Road to 100,000 subscribers.
+Road to {road_goal:,}.
 
 Automatically updated every hour.
 """
@@ -396,6 +419,7 @@ request = youtube.videos().insert(
 
 response = request.execute()
 
+print()
 print("==============================")
 print("       VIDÉO PUBLIÉE !")
 print("==============================")
@@ -407,10 +431,11 @@ print("==============================")
 
 
 # =========================
-# HISTORIQUE
+# SAUVEGARDE
 # =========================
 
 history["last_subscribers"] = subscribers
+history["last_post"] = datetime.now(timezone.utc).isoformat()
 
 history_path.write_text(
     json.dumps(
@@ -420,4 +445,5 @@ history_path.write_text(
     encoding="utf-8"
 )
 
+print("Historique sauvegardé.")
 print("Terminé !")
