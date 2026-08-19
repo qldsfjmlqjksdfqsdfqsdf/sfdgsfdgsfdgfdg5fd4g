@@ -58,21 +58,6 @@ else:
 # CONTRÔLE HORAIRE
 # =========================
 
-last_post = history.get("last_post")
-
-if last_post:
-    try:
-        last_time = datetime.fromisoformat(last_post)
-        now = datetime.now(timezone.utc)
-
-        if now - last_time < timedelta(minutes=55):
-            print("Moins de 55 minutes depuis la dernière vidéo.")
-            print("Aucune vidéo publiée.")
-            raise SystemExit
-
-    except ValueError:
-        pass
-
 
 # =========================
 # YOUTUBE
