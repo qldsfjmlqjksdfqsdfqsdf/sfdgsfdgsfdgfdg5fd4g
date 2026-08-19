@@ -4,9 +4,11 @@ on:
   schedule:
     - cron: "37 * * * *"
   workflow_dispatch:
+  repository_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   counter:
@@ -32,4 +34,4 @@ jobs:
           printf '%s' "$TOKEN" > token.json
 
       - name: Run counter
-        run: python counter.py 
+        run: python counter.py
