@@ -1,14 +1,11 @@
 name: Hourly YouTube Counter
 
 on:
-  schedule:
-    - cron: "37 * * * *"
   workflow_dispatch:
   repository_dispatch:
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
   counter:
@@ -35,3 +32,16 @@ jobs:
 
       - name: Run counter
         run: python counter.py
+
+      - name: Wait one hour
+        run: sleep 3600
+
+      - name: Start next run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/dispatches \
+            -f event_type=hourly-counter
