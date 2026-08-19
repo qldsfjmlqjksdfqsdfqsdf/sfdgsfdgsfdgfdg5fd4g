@@ -2,11 +2,16 @@ name: Hourly YouTube Counter
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    - cron: "*/5 * * * *"
+      timezone: "Europe/Paris"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: youtube-counter
+  cancel-in-progress: false
 
 jobs:
   counter:
