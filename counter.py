@@ -160,8 +160,8 @@ event = random.choice([
 print("Création de l'image...")
 
 
-WIDTH = 1080
-HEIGHT = 1920
+WIDTH = 1920
+HEIGHT = 1080
 
 
 image = Image.new(
@@ -491,7 +491,7 @@ print("Création de la vidéo...")
 clip = ImageClip(
     IMAGE_FILE
 ).with_duration(
-    10
+    30
 )
 
 
