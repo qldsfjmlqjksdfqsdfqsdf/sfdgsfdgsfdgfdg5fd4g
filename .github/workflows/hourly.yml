@@ -3,7 +3,6 @@ name: Hourly YouTube Counter
 on:
   schedule:
     - cron: "*/5 * * * *"
-      timezone: "Europe/Paris"
   workflow_dispatch:
 
 permissions:
