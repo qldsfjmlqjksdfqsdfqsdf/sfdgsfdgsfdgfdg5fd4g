@@ -4,7 +4,8 @@ name: Hourly YouTube Counter
 on:
   workflow_dispatch:
   repository_dispatch:
-    types: [hourly-counter]
+    types:
+      - hourly-counter
 
 permissions:
   contents: write
