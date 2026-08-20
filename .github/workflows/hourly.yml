@@ -33,6 +33,14 @@ jobs:
       - name: Run counter
         run: python counter.py
 
+      - name: Save history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          git commit -m "Update subscriber history"
+          git push
+
       - name: Wait one hour
         run: sleep 3600
 
