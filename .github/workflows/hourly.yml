@@ -1,3 +1,4 @@
+```yaml
 name: Hourly YouTube Counter
 
 on:
@@ -70,3 +71,5 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             /repos/${{ github.repository }}/dispatches \
             -f event_type=hourly-counter
+```
+
