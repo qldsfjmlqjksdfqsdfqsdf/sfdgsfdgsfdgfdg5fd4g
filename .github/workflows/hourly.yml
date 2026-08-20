@@ -1,11 +1,8 @@
-```yaml
+
 name: Hourly YouTube Counter
 
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types:
-      - hourly-counter
 
 permissions:
   contents: write
@@ -54,12 +51,6 @@ jobs:
             git push origin main
           fi
 
-      - name: Verify saved history
-        run: |
-          git pull origin main
-          echo "History currently stored in repository:"
-          cat history.json
-
       - name: Wait one hour
         run: sleep 3600
 
@@ -72,4 +63,3 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             /repos/${{ github.repository }}/dispatches \
             -f event_type=hourly-counter
-```
