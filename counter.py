@@ -4,7 +4,7 @@ from googleapiclient.http import MediaFileUpload
 from PIL import Image, ImageDraw, ImageFont
 from moviepy import ImageClip
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import json
 import random
 
@@ -52,11 +52,6 @@ if history_path.exists():
         history = {}
 else:
     history = {}
-
-
-# =========================
-# CONTRÔLE HORAIRE
-# =========================
 
 
 # =========================
@@ -159,6 +154,7 @@ event = random.choice([
     "dots",
     "lines"
 ])
+
 
 if event == "stars":
 
@@ -535,42 +531,68 @@ Road to {road_goal:,}.
 Automatically updated every hour.
 """
 
-request = youtube.videos().insert(
-    part="snippet,status",
+upload_success = False
+upload_error = None
 
-    body={
-        "snippet": {
-            "title": title[:100],
-            "description": description,
-            "categoryId": "22"
+try:
+
+    request = youtube.videos().insert(
+        part="snippet,status",
+
+        body={
+            "snippet": {
+                "title": title[:100],
+                "description": description,
+                "categoryId": "22"
+            },
+
+            "status": {
+                "privacyStatus": "public",
+                "selfDeclaredMadeForKids": False
+            }
         },
 
-        "status": {
-            "privacyStatus": "public",
-            "selfDeclaredMadeForKids": False
-        }
-    },
-
-    media_body=MediaFileUpload(
-        VIDEO_FILE,
-        mimetype="video/mp4",
-        resumable=True
+        media_body=MediaFileUpload(
+            VIDEO_FILE,
+            mimetype="video/mp4",
+            resumable=True
+        )
     )
-)
 
-response = request.execute()
+    response = request.execute()
 
-print()
-print("==============================")
-print("       VIDÉO PUBLIÉE !")
-print("==============================")
+    upload_success = True
 
-print(
-    "https://youtube.com/watch?v="
-    + response["id"]
-)
+    print()
+    print("==============================")
+    print("       VIDÉO PUBLIÉE !")
+    print("==============================")
 
-print("==============================")
+    print(
+        "https://youtube.com/watch?v="
+        + response["id"]
+    )
+
+    print("==============================")
+
+
+except Exception as e:
+
+    upload_error = str(e)
+
+    print()
+    print("==============================")
+    print("       UPLOAD REFUSÉ")
+    print("==============================")
+
+    print(upload_error)
+
+    print("==============================")
+
+    print(
+        "Le compteur continue malgré "
+        "l'erreur YouTube."
+    )
 
 
 # =========================
@@ -584,6 +606,20 @@ history["last_post"] = (
     .isoformat()
 )
 
+history["last_upload_success"] = upload_success
+
+if upload_error is not None:
+
+    history["last_upload_error"] = upload_error
+
+else:
+
+    history.pop(
+        "last_upload_error",
+        None
+    )
+
+
 history_path.write_text(
     json.dumps(
         history,
@@ -593,4 +629,24 @@ history_path.write_text(
 )
 
 print("Historique sauvegardé.")
+
+if upload_success:
+
+    print(
+        "Vidéo publiée et historique "
+        "sauvegardé."
+    )
+
+else:
+
+    print(
+        "Vidéo non publiée, mais "
+        "historique sauvegardé."
+    )
+
+    print(
+        "La prochaine exécution "
+        "réessaiera automatiquement."
+    )
+
 print("Terminé !")
