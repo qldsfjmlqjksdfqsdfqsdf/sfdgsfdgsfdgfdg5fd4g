@@ -1,9 +1,11 @@
 name: Hourly YouTube Counter
 
 on:
-  schedule:
-    - cron: "17 * * * *"
   workflow_dispatch:
+
+  repository_dispatch:
+    types:
+      - next_hour
 
 permissions:
   contents: write
@@ -16,23 +18,43 @@ jobs:
   counter:
     runs-on: ubuntu-latest
 
-    timeout-minutes: 15
+    timeout-minutes: 70
 
     steps:
+
+      # =========================
+      # CHECKOUT
+      # =========================
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
 
+
+      # =========================
+      # PYTHON
+      # =========================
+
       - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+
+      # =========================
+      # DEPENDENCIES
+      # =========================
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+
+
+      # =========================
+      # YOUTUBE TOKEN
+      # =========================
 
       - name: Create token
         env:
@@ -40,11 +62,25 @@ jobs:
         run: |
           printf '%s' "$TOKEN" > token.json
 
+
+      # =========================
+      # COUNTER
+      # =========================
+
       - name: Run counter
-        run: python counter.py
+        id: counter
+        continue-on-error: true
+        run: |
+          python counter.py
+
+
+      # =========================
+      # SAVE HISTORY
+      # =========================
 
       - name: Save history
         if: always()
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -53,11 +89,44 @@ jobs:
 
           if git diff --cached --quiet; then
             echo "No history changes."
-            exit 0
+          else
+            git commit -m "Update subscriber history"
+
+            git pull --rebase origin main || true
+
+            git push origin main || true
           fi
 
-          git commit -m "Update subscriber history"
 
-          git pull --rebase origin main || true
+      # =========================
+      # WAIT ONE HOUR
+      # =========================
 
-          git push origin main || true
+      - name: Wait one hour
+        if: always()
+        run: |
+          echo "Prochaine vidéo dans environ 1 heure..."
+          sleep 3600
+
+
+      # =========================
+      # START NEXT RUN
+      # =========================
+
+      - name: Start next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Démarrage de la prochaine run..."
+
+          curl --fail-with-body \
+            -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+            -d '{"event_type":"next_hour"}'
+
+          echo "Prochaine run déclenchée." 
