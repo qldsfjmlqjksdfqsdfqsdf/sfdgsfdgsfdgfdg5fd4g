@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 import random
+import traceback
 
 TOKEN_FILE = "token.json"
 HISTORY_FILE = "history.json"
@@ -37,21 +38,38 @@ def get_font(size, bold=False):
     return ImageFont.load_default()
 
 
-# =========================
-# HISTORIQUE
-# =========================
+def load_history():
+    path = Path(HISTORY_FILE)
 
-history_path = Path(HISTORY_FILE)
+    if not path.exists():
+        return {}
 
-if history_path.exists():
     try:
-        history = json.loads(
-            history_path.read_text(encoding="utf-8")
+        return json.loads(
+            path.read_text(encoding="utf-8")
         )
-    except Exception:
-        history = {}
-else:
-    history = {}
+    except Exception as e:
+        print("Impossible de lire history.json :", e)
+        return {}
+
+
+def save_history(history):
+    Path(HISTORY_FILE).write_text(
+        json.dumps(
+            history,
+            indent=2
+        ),
+        encoding="utf-8"
+    )
+
+
+history = load_history()
+
+run_time = datetime.now(timezone.utc).isoformat()
+
+upload_success = False
+upload_error = None
+subscriber_error = None
 
 
 # =========================
@@ -60,30 +78,66 @@ else:
 
 print("Connexion à YouTube...")
 
-credentials = Credentials.from_authorized_user_file(
-    TOKEN_FILE
-)
+try:
+    credentials = Credentials.from_authorized_user_file(
+        TOKEN_FILE
+    )
 
-youtube = build(
-    "youtube",
-    "v3",
-    credentials=credentials
-)
+    youtube = build(
+        "youtube",
+        "v3",
+        credentials=credentials
+    )
 
-data = youtube.channels().list(
-    part="snippet,statistics",
-    mine=True
-).execute()["items"][0]
+    data_response = youtube.channels().list(
+        part="snippet,statistics",
+        mine=True
+    ).execute()
 
-channel_name = data["snippet"]["title"]
+    items = data_response.get("items", [])
 
-subscribers = int(
-    data["statistics"].get("subscriberCount", 0)
-)
+    if not items:
+        raise RuntimeError(
+            "Aucune chaîne YouTube trouvée avec ce token."
+        )
 
-print()
-print("Chaîne :", channel_name)
-print("Abonnés :", subscribers)
+    data = items[0]
+
+    channel_name = data["snippet"]["title"]
+
+    subscribers = int(
+        data["statistics"].get(
+            "subscriberCount",
+            0
+        )
+    )
+
+    print()
+    print("Chaîne :", channel_name)
+    print("Abonnés :", subscribers)
+
+except Exception as e:
+
+    subscriber_error = str(e)
+
+    print()
+    print("==============================")
+    print(" ERREUR RÉCUPÉRATION YOUTUBE")
+    print("==============================")
+    print(subscriber_error)
+    print("==============================")
+
+    history["last_run"] = run_time
+    history["last_upload_success"] = False
+    history["last_upload_error"] = subscriber_error
+
+    save_history(history)
+
+    print("Historique sauvegardé.")
+    print("Cette exécution se termine normalement.")
+    print("La prochaine heure réessaiera.")
+
+    raise SystemExit(0)
 
 
 # =========================
@@ -93,20 +147,33 @@ print("Abonnés :", subscribers)
 previous = history.get("last_subscribers")
 
 if previous is None:
+
     gained = 0
     lost = 0
+
 else:
+
     difference = subscribers - int(previous)
 
-    gained = max(difference, 0)
-    lost = max(-difference, 0)
+    gained = max(
+        difference,
+        0
+    )
+
+    lost = max(
+        -difference,
+        0
+    )
 
 
 # =========================
 # NEXT HOUR GOAL
 # =========================
 
-next_hour_goal = subscribers + max(gained, 1)
+next_hour_goal = (
+    subscribers
+    + max(gained, 1)
+)
 
 
 # =========================
@@ -143,10 +210,6 @@ image = Image.new(
 
 draw = ImageDraw.Draw(image)
 
-
-# =========================
-# DÉCOR ALÉATOIRE
-# =========================
 
 event = random.choice([
     "stars",
@@ -489,21 +552,48 @@ print("Image créée.")
 
 print("Création de la vidéo...")
 
-clip = ImageClip(
-    IMAGE_FILE
-).with_duration(
-    30
-)
+try:
 
-clip.write_videofile(
-    VIDEO_FILE,
-    fps=30,
-    codec="libx264",
-    audio=False,
-    logger=None
-)
+    clip = ImageClip(
+        IMAGE_FILE
+    ).with_duration(
+        30
+    )
 
-clip.close()
+    clip.write_videofile(
+        VIDEO_FILE,
+        fps=30,
+        codec="libx264",
+        audio=False,
+        logger=None
+    )
+
+    clip.close()
+
+except Exception as e:
+
+    print()
+    print("==============================")
+    print(" ERREUR CRÉATION VIDÉO")
+    print("==============================")
+    print(str(e))
+    print("==============================")
+
+    history["last_run"] = run_time
+    history["last_subscribers"] = subscribers
+    history["last_upload_success"] = False
+    history["last_upload_error"] = (
+        "Video creation error: "
+        + str(e)
+    )
+
+    save_history(history)
+
+    print("Historique sauvegardé.")
+    print("La prochaine heure réessaiera.")
+
+    raise SystemExit(0)
+
 
 print("Vidéo créée.")
 
@@ -531,8 +621,6 @@ Road to {road_goal:,}.
 Automatically updated every hour.
 """
 
-upload_success = False
-upload_error = None
 
 try:
 
@@ -584,14 +672,11 @@ except Exception as e:
     print("==============================")
     print("       UPLOAD REFUSÉ")
     print("==============================")
-
     print(upload_error)
-
     print("==============================")
 
     print(
-        "Le compteur continue malgré "
-        "l'erreur YouTube."
+        "Le workflow continue."
     )
 
 
@@ -601,10 +686,7 @@ except Exception as e:
 
 history["last_subscribers"] = subscribers
 
-history["last_post"] = (
-    datetime.now(timezone.utc)
-    .isoformat()
-)
+history["last_run"] = run_time
 
 history["last_upload_success"] = upload_success
 
@@ -620,13 +702,7 @@ else:
     )
 
 
-history_path.write_text(
-    json.dumps(
-        history,
-        indent=2
-    ),
-    encoding="utf-8"
-)
+save_history(history)
 
 print("Historique sauvegardé.")
 
@@ -640,12 +716,11 @@ if upload_success:
 else:
 
     print(
-        "Vidéo non publiée, mais "
-        "historique sauvegardé."
+        "Vidéo non publiée."
     )
 
     print(
-        "La prochaine exécution "
+        "La prochaine exécution horaire "
         "réessaiera automatiquement."
     )
 
