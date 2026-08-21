@@ -1,10 +1,9 @@
 name: Hourly YouTube Counter
 
 on:
+  schedule:
+    - cron: "17 * * * *"
   workflow_dispatch:
-  repository_dispatch:
-    types:
-      - hourly-counter
 
 permissions:
   contents: write
@@ -56,22 +55,3 @@ jobs:
             git pull --rebase origin main
             git push origin main
           fi
-
-      - name: Verify saved history
-        run: |
-          git pull origin main
-          echo "History currently stored in repository:"
-          cat history.json
-
-      - name: Wait one hour
-        run: sleep 3600
-
-      - name: Start next run
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/dispatches" \
-            -f event_type=hourly-counter
