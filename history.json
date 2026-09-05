@@ -2,7 +2,7 @@
   "last": 0,
   "last_subscribers": 4,
   "last_post": "2026-08-21T08:26:22.957191+00:00",
-  "last_run": "2026-09-05T14:51:33.012857+00:00",
+  "last_run": "2026-09-05T15:51:49.336258+00:00",
   "last_upload_success": false,
   "last_upload_error": "('invalid_grant: Token has been expired or revoked.', {'error': 'invalid_grant', 'error_description': 'Token has been expired or revoked.'})"
 }
